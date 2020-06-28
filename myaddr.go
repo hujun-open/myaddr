@@ -81,3 +81,14 @@ func GenAddrWithPrefix(prefix *net.IPNet, hostn *big.Int) (net.IP, error) {
 	}
 	return IncAddr(prefix.IP, hostn)
 }
+
+//GenConnectionAddrStr return a string with following format:
+//IPv4: <prefix><ip>:<port>
+//IPv6: <prefix>[<ip>]:<port>
+func GenConnectionAddrStr(prefix string, ip net.IP, port int) string {
+	if ip.To4() != nil {
+		return fmt.Sprintf("%v%v:%v", prefix, ip, port)
+	} else {
+		return fmt.Sprintf("%v[%v]:%v", prefix, ip, port)
+	}
+}

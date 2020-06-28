@@ -217,3 +217,45 @@ func TestGenAddrWithPrefix(t *testing.T) {
 		}
 	}
 }
+
+type testGenConnectionCase struct {
+	prefixStr    string
+	ip           net.IP
+	port         int
+	expectedAddr string
+	shouldFail   bool
+}
+
+func TestGenConnectionAddStr(t *testing.T) {
+	testData := []testGenConnectionCase{
+		testGenConnectionCase{
+			prefixStr:    "http://",
+			ip:           net.ParseIP("192.168.1.1"),
+			port:         8043,
+			expectedAddr: "http://192.168.1.1:8043",
+		},
+		testGenConnectionCase{
+			prefixStr:    "http://",
+			ip:           net.ParseIP("2001:dead::1"),
+			port:         8043,
+			expectedAddr: "http://[2001:dead::1]:8043",
+		},
+	}
+	runTest := func(c testGenConnectionCase) error {
+		rstr := GenConnectionAddrStr(c.prefixStr, c.ip, c.port)
+		if rstr != c.expectedAddr {
+			return fmt.Errorf("result %v is different from expected %v", rstr, c.expectedAddr)
+		}
+		return nil
+	}
+	for i, c := range testData {
+		err := runTest(c)
+		if err != nil {
+			if c.shouldFail {
+				t.Logf("expected case %d failed,%v ", i, err)
+			} else {
+				t.Fatal(err)
+			}
+		}
+	}
+}
