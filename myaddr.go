@@ -7,6 +7,31 @@ import (
 	"net"
 )
 
+//HWAddrtoBig convert hardware address to *big.Int
+func HWAddrtoBig(addr net.HardwareAddr) *big.Int {
+	r := new(big.Int)
+	r.SetBytes([]byte(addr))
+	return r
+}
+
+//BigtoAddr convert n to a hardware address, with specified alen
+func BigtoHWAddr(n *big.Int, alen int) (net.HardwareAddr, error) {
+	buf := n.Bytes()
+	var delta int
+	delta = alen - len(buf)
+	if delta < 0 {
+		return nil, fmt.Errorf("%v is too big for %d byte slice", n, alen)
+	}
+	rbuf := make([]byte, alen)
+	copy(rbuf[delta:], buf)
+	return rbuf, nil
+}
+
+//BigtoMACAddr convert n to a MAC address
+func BigtoMACAddr(n *big.Int) (net.HardwareAddr, error) {
+	return BigtoHWAddr(n, 6)
+}
+
 //AddrtoBig convert IP address to *big.Int
 func AddrtoBig(addr net.IP) *big.Int {
 	r := new(big.Int)
@@ -32,6 +57,9 @@ func BigtoAddr(n *big.Int, ipv4 bool) (net.IP, error) {
 		}
 	} else {
 		delta = 16 - len(buf)
+		if delta < 0 {
+			return nil, fmt.Errorf("%v is too big for an IPv6 address", n)
+		}
 		alen = 16
 	}
 	rbuf := make([]byte, alen)
@@ -41,12 +69,25 @@ func BigtoAddr(n *big.Int, ipv4 bool) (net.IP, error) {
 
 const (
 	MaxIPv4AddrN   = 4294967295
+	MaxMACAddrN    = 281474976710655
 	MaxIPv6AddrStr = "340282366920938463463374607431768211455"
 )
 
+//IncAddr increase macaddr by step (could be negative), return the result
+func IncMACAddr(macaddr net.HardwareAddr, step *big.Int) (net.HardwareAddr, error) {
+	rn := big.NewInt(0).Add(HWAddrtoBig(macaddr), step)
+	if rn.Cmp(big.NewInt(0)) == -1 {
+		return nil, fmt.Errorf("%v and step %d result in negative result", macaddr, step)
+	}
+
+	if rn.Cmp(big.NewInt(MaxMACAddrN)) == 1 {
+		return nil, fmt.Errorf("%v and step %d result exceeds FF:FF:FF:FF:FF:FF", macaddr, step)
+	}
+	return BigtoMACAddr(rn)
+}
+
 //IncAddr increase addr by step (could be negative), return the result
 func IncAddr(addr net.IP, step *big.Int) (net.IP, error) {
-
 	rn := big.NewInt(0).Add(AddrtoBig(addr), step)
 	if rn.Cmp(big.NewInt(0)) == -1 {
 		return nil, fmt.Errorf("%v and step %d result in negative result", addr, step)
@@ -64,7 +105,6 @@ func IncAddr(addr net.IP, step *big.Int) (net.IP, error) {
 			return nil, fmt.Errorf("%v and step %d result exceeds FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF", addr, step)
 		}
 		return BigtoAddr(rn, false)
-
 	}
 }
 

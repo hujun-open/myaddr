@@ -2,11 +2,112 @@
 package myaddr
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
+	"strings"
 	"testing"
 )
+
+type testMACConvertIncCase struct {
+	addrStr        string
+	step           int64
+	expectedResult string
+	shouldFail     bool
+}
+
+//strToByteSlice convert an hex columned string into byte slice,
+//like "11:22:33" into []byte{11,22,33}
+func strToByteSlice(s string) ([]byte, error) {
+	s = strings.ReplaceAll(s, ":", "")
+	return hex.DecodeString(s)
+}
+
+func TestMACConvertion(t *testing.T) {
+	testData := []testMACConvertIncCase{
+		testMACConvertIncCase{
+			addrStr: "11:22:33:44:55:66",
+		},
+		testMACConvertIncCase{
+			addrStr:        "11:22:33:44:55:66",
+			step:           1,
+			expectedResult: "11:22:33:44:55:67",
+		},
+		testMACConvertIncCase{
+			addrStr:        "11:22:33:44:55:ff",
+			step:           1,
+			expectedResult: "11:22:33:44:56:00",
+		},
+		testMACConvertIncCase{
+			addrStr:        "10:00:00:00:00:00",
+			step:           1,
+			expectedResult: "10:00:00:00:00:01",
+		},
+		testMACConvertIncCase{
+			addrStr:        "00:00:00:00:00:00",
+			step:           1,
+			expectedResult: "00:00:00:00:00:01",
+		},
+		testMACConvertIncCase{
+			addrStr:        "00:00:00:00:00:01",
+			step:           1,
+			expectedResult: "00:00:00:00:00:02",
+		},
+		testMACConvertIncCase{
+			addrStr: "00:00:00:00:00:00",
+		},
+		testMACConvertIncCase{
+			addrStr:    "00:00:00:00:00:00",
+			step:       -1,
+			shouldFail: true,
+		},
+		testMACConvertIncCase{
+			addrStr: "ff:FF:ff:ff:FF:ff",
+		},
+		testMACConvertIncCase{
+			addrStr:    "ff:ff:ff:ff:FF:ff",
+			step:       1,
+			shouldFail: true,
+		},
+		testMACConvertIncCase{
+			addrStr:    "ff:FF:ff:ff:FF:ff:ff:ff:ff",
+			shouldFail: true,
+		},
+	}
+	runTest := func(c testMACConvertIncCase) error {
+		bslice, err := strToByteSlice(c.addrStr)
+		if err != nil {
+			return err
+		}
+		addr := net.HardwareAddr(bslice)
+		convertedAddr, err := IncMACAddr(addr, big.NewInt(c.step))
+		if err != nil {
+			return err
+		}
+		if c.step == 0 {
+			if addr.String() != convertedAddr.String() {
+				return fmt.Errorf("converted back addr %v is different from expected result addr %v", convertedAddr, addr)
+			}
+		} else {
+			if convertedAddr.String() != c.expectedResult {
+				return fmt.Errorf("converted back addr %v is different from expected result addr %v", convertedAddr, c.expectedResult)
+			}
+		}
+
+		return nil
+	}
+	for i, c := range testData {
+		err := runTest(c)
+		if err != nil {
+			if c.shouldFail {
+				t.Logf("expected case %d failed,%v ", i, err)
+			} else {
+				t.Fatal(err)
+			}
+		}
+	}
+}
 
 type testConvertCase struct {
 	addrStr    string
