@@ -360,3 +360,102 @@ func TestGenConnectionAddStr(t *testing.T) {
 		}
 	}
 }
+
+type testIncVLANCase struct {
+	vlans          []uint16
+	step           int
+	expectedResult []uint16
+	shouldFail     bool
+}
+
+func TestIncreaseVLANs(t *testing.T) {
+	testCases := []testIncVLANCase{
+		testIncVLANCase{
+			vlans:          []uint16{100, 200},
+			step:           2,
+			expectedResult: []uint16{100, 202},
+		},
+		testIncVLANCase{
+			vlans:          []uint16{100, 4095},
+			step:           2,
+			expectedResult: []uint16{101, 1},
+		},
+		testIncVLANCase{
+			vlans:          []uint16{100, 4095},
+			step:           -2,
+			expectedResult: []uint16{100, 4093},
+		},
+		testIncVLANCase{
+			vlans:          []uint16{4095, 4095},
+			step:           2,
+			expectedResult: []uint16{1, 0, 1},
+		},
+		testIncVLANCase{
+			vlans:          []uint16{4095, 4093},
+			step:           0,
+			expectedResult: []uint16{4095, 4093},
+		},
+		testIncVLANCase{
+			vlans:          []uint16{4095, 4095},
+			step:           2,
+			expectedResult: []uint16{4095, 4095},
+			shouldFail:     true,
+		},
+		testIncVLANCase{
+			vlans:          []uint16{8000, 4095},
+			step:           2,
+			expectedResult: []uint16{4095, 4095},
+			shouldFail:     true,
+		},
+		testIncVLANCase{
+			vlans:          []uint16{400, 9000},
+			step:           2,
+			expectedResult: []uint16{4095, 4095},
+			shouldFail:     true,
+		},
+		testIncVLANCase{
+			vlans:          []uint16{400, 4095},
+			step:           0,
+			expectedResult: []uint16{400, 4095},
+			shouldFail:     false,
+		},
+	}
+	cmpUint16SliceFunc := func(a, b []uint16) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i, num := range a {
+			if num != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	chkErrFunc := func(err error, caseid int, c testIncVLANCase, t *testing.T, r []uint16) {
+		if err != nil {
+			if c.shouldFail {
+				t.Logf("case %d failed as expected,%v", caseid, err)
+			} else {
+				t.Fatalf("case %d failed,%v", caseid, err)
+			}
+		} else {
+			if !cmpUint16SliceFunc(r, c.expectedResult) {
+				if c.shouldFail {
+					t.Logf("case %d failed as expected,different result", caseid)
+				} else {
+					t.Fatalf("case %d failed, got different result than expected,expected: %v, actual:%v", caseid, c.expectedResult, r)
+				}
+			} else {
+				if c.shouldFail {
+					t.Fatalf("case %d should fail but succeed", caseid)
+				}
+			}
+		}
+
+	}
+	for i, c := range testCases {
+		newlist, err := IncreaseVLANIDs(c.vlans, c.step)
+		chkErrFunc(err, i, c, t, newlist)
+	}
+}
