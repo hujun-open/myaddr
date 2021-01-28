@@ -175,3 +175,14 @@ func IncreaseVLANIDs(ids []uint16, step int) ([]uint16, error) {
 	}
 	return r, nil
 }
+
+// GetLLAFromMac return an IPv6 link local address from mac,
+// based on Appendix A of RFC4291
+func GetLLAFromMac(mac net.HardwareAddr) net.IP {
+	var ifid [8]byte
+	ifid[0] = mac[0] ^ 0b00000010
+	copy(ifid[1:3], mac[1:3])
+	copy(ifid[3:5], []byte{0xff, 0xfe})
+	copy(ifid[5:], mac[3:6])
+	return net.IP(append([]byte{0xfe, 0x80, 0, 0, 0, 0, 0, 0}, ifid[:]...))
+}

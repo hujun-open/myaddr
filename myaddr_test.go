@@ -459,3 +459,11 @@ func TestIncreaseVLANs(t *testing.T) {
 		chkErrFunc(err, i, c, t, newlist)
 	}
 }
+
+func TestLLA(t *testing.T) {
+	mac, _ := net.ParseMAC("4a:08:5d:b5:91:ed")
+	lla := GetLLAFromMac(mac)
+	if !lla.Equal(net.ParseIP("fe80::4808:5dff:feb5:91ed")) {
+		t.Fatalf("result LLA %v is different from expect %v", lla, "fe80::4808:5dff:feb5:91ed")
+	}
+}
