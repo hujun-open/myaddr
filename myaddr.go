@@ -5,7 +5,6 @@
 /*
 Package myaddr is Go module that provides varies functions to processing address,
 include IP address, MAC address and VLAN ID.
-
 */
 package myaddr
 
@@ -13,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/netip"
 )
 
 // HWAddrtoBig convert hardware address to *big.Int
@@ -25,8 +25,7 @@ func HWAddrtoBig(addr net.HardwareAddr) *big.Int {
 // BigtoHWAddr convert n to a hardware address, with specified alen
 func BigtoHWAddr(n *big.Int, alen int) (net.HardwareAddr, error) {
 	buf := n.Bytes()
-	var delta int
-	delta = alen - len(buf)
+	var delta = alen - len(buf)
 	if delta < 0 {
 		return nil, fmt.Errorf("%v is too big for %d byte slice", n, alen)
 	}
@@ -116,9 +115,9 @@ func IncAddr(addr net.IP, step *big.Int) (net.IP, error) {
 	return BigtoAddr(rn, false)
 }
 
-// GenAddrWithPrefix geneate an address = prefix + hostn.
+// GenAddrWithIPNet geneate an address = prefix + hostn.
 // hostn must>=0
-func GenAddrWithPrefix(prefix *net.IPNet, hostn *big.Int) (net.IP, error) {
+func GenAddrWithIPNet(prefix *net.IPNet, hostn *big.Int) (net.IP, error) {
 	if hostn.Cmp(big.NewInt(0)) == -1 {
 		return nil, fmt.Errorf("%v is negative", hostn)
 	}
@@ -128,6 +127,31 @@ func GenAddrWithPrefix(prefix *net.IPNet, hostn *big.Int) (net.IP, error) {
 		return nil, fmt.Errorf("%v exceeds max allowed host value for prefix %v", hostn, prefix)
 	}
 	return IncAddr(prefix.IP, hostn)
+}
+
+// GenAddrWithPrefix geneate an address = prefix + hostn.
+// hostn must>=0
+func GenAddrWithPrefix(prefix netip.Prefix, hostn *big.Int) (*netip.Addr, error) {
+	if hostn.Cmp(big.NewInt(0)) == -1 {
+		return nil, fmt.Errorf("%v is negative", hostn)
+	}
+	maskbits := prefix.Bits()
+	totalmaskbits := prefix.Addr().BitLen()
+	deltan := big.NewInt(0).Exp(big.NewInt(2), big.NewInt(int64(totalmaskbits-maskbits)), big.NewInt(0))
+	if hostn.Cmp(deltan) >= 0 {
+		return nil, fmt.Errorf("%v exceeds max allowed host value for prefix %v", hostn, prefix)
+	}
+	rip, err := IncAddr(prefix.Masked().Addr().AsSlice(), hostn)
+	if err != nil {
+		return nil, err
+	}
+	r, ok := netip.AddrFromSlice(rip)
+	if !ok {
+		err = fmt.Errorf("invalid result address, %v", rip)
+	} else {
+		err = nil
+	}
+	return &r, err
 }
 
 // GenConnectionAddrStr return a string with following format:

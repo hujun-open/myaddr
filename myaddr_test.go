@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/netip"
 	"strings"
 	"testing"
 )
@@ -17,8 +18,8 @@ type testMACConvertIncCase struct {
 	shouldFail     bool
 }
 
-//strToByteSlice convert an hex columned string into byte slice,
-//like "11:22:33" into []byte{11,22,33}
+// strToByteSlice convert an hex columned string into byte slice,
+// like "11:22:33" into []byte{11,22,33}
 func strToByteSlice(s string) ([]byte, error) {
 	s = strings.ReplaceAll(s, ":", "")
 	return hex.DecodeString(s)
@@ -206,6 +207,16 @@ func TestIncAddr(t *testing.T) {
 			step:         1,
 			expectedAddr: "1.1.1.2",
 		},
+		{
+			addrStr:      "1.1.1.1",
+			step:         255,
+			expectedAddr: "1.1.2.0",
+		},
+		{
+			addrStr:      "1.1.1.1",
+			step:         256,
+			expectedAddr: "1.1.2.1",
+		},
 		testIncCase{
 			addrStr:      "1.1.1.255",
 			step:         1,
@@ -293,17 +304,29 @@ func TestGenAddrWithPrefix(t *testing.T) {
 		},
 	}
 	runTest := func(c testGenAddrWithPrefixCase) error {
-		_, prefix, err := net.ParseCIDR(c.prefixStr)
+		//test GenAddrWithIPNet
+		_, ipnet, err := net.ParseCIDR(c.prefixStr)
 		if err != nil {
 			return fmt.Errorf("failed to parse test case prefix,%v", err)
 		}
-		rip, err := GenAddrWithPrefix(prefix, big.NewInt(c.hostn))
+		rip, err := GenAddrWithIPNet(ipnet, big.NewInt(c.hostn))
 		if err != nil {
-			return fmt.Errorf("failed to generate address,%v", err)
+			return fmt.Errorf("failed to generate address via GenAddrWithIPNet,%v", err)
 		}
 		if !rip.Equal(net.ParseIP(c.expectedAddr)) {
-			return fmt.Errorf("result addr %v is different from expected addr %v", rip, c.expectedAddr)
+			return fmt.Errorf("GenAddrWithIPNet: result addr %v is different from expected addr %v", rip, c.expectedAddr)
 		}
+		//test GenAddrWithPrefix
+		prefix := netip.MustParsePrefix(c.prefixStr)
+		raddr, err := GenAddrWithPrefix(prefix, big.NewInt(c.hostn))
+		if err != nil {
+			return fmt.Errorf("failed to generate address via GenAddrWithPrefix,%v", err)
+		}
+		if raddr.Compare(netip.MustParseAddr(c.expectedAddr)) != 0 {
+			return fmt.Errorf("GenAddrWithPrefix: result addr %v is different from expected addr %v", raddr, c.expectedAddr)
+
+		}
+
 		return nil
 
 	}
