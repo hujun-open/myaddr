@@ -129,29 +129,28 @@ func GenAddrWithIPNet(prefix *net.IPNet, hostn *big.Int) (net.IP, error) {
 	return IncAddr(prefix.IP, hostn)
 }
 
-// GenAddrWithPrefix geneate an address = prefix + hostn.
+// GenPrefixWithPrefix geneate an prefix = prefix + hostn.
 // hostn must>=0
-func GenAddrWithPrefix(prefix netip.Prefix, hostn *big.Int) (*netip.Addr, error) {
+func GenPrefixWithPrefix(prefix netip.Prefix, hostn *big.Int) (netip.Prefix, error) {
 	if hostn.Cmp(big.NewInt(0)) == -1 {
-		return nil, fmt.Errorf("%v is negative", hostn)
+		return netip.Prefix{}, fmt.Errorf("%v is negative", hostn)
 	}
 	maskbits := prefix.Bits()
 	totalmaskbits := prefix.Addr().BitLen()
 	deltan := big.NewInt(0).Exp(big.NewInt(2), big.NewInt(int64(totalmaskbits-maskbits)), big.NewInt(0))
 	if hostn.Cmp(deltan) >= 0 {
-		return nil, fmt.Errorf("%v exceeds max allowed host value for prefix %v", hostn, prefix)
+		return netip.Prefix{}, fmt.Errorf("%v exceeds max allowed host value for prefix %v", hostn, prefix)
 	}
 	rip, err := IncAddr(prefix.Masked().Addr().AsSlice(), hostn)
 	if err != nil {
-		return nil, err
+		return netip.Prefix{}, err
 	}
 	r, ok := netip.AddrFromSlice(rip)
 	if !ok {
-		err = fmt.Errorf("invalid result address, %v", rip)
-	} else {
-		err = nil
+		return netip.Prefix{}, fmt.Errorf("invalid result address, %v", rip)
 	}
-	return &r, err
+
+	return netip.PrefixFrom(r, prefix.Bits()), err
 }
 
 // GenConnectionAddrStr return a string with following format:

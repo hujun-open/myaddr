@@ -318,15 +318,16 @@ func TestGenAddrWithPrefix(t *testing.T) {
 		}
 		//test GenAddrWithPrefix
 		prefix := netip.MustParsePrefix(c.prefixStr)
-		raddr, err := GenAddrWithPrefix(prefix, big.NewInt(c.hostn))
+		newprefix, err := GenPrefixWithPrefix(prefix, big.NewInt(c.hostn))
 		if err != nil {
 			return fmt.Errorf("failed to generate address via GenAddrWithPrefix,%v", err)
 		}
-		if raddr.Compare(netip.MustParseAddr(c.expectedAddr)) != 0 {
-			return fmt.Errorf("GenAddrWithPrefix: result addr %v is different from expected addr %v", raddr, c.expectedAddr)
-
+		if newprefix.Addr().Compare(netip.MustParseAddr(c.expectedAddr)) != 0 {
+			return fmt.Errorf("GenAddrWithPrefix: result addr %v is different from expected addr %v", newprefix, c.expectedAddr)
 		}
-
+		if newprefix.Bits() != prefix.Bits() {
+			return fmt.Errorf("GenAddrWithPrefix: result prefix length %d is different from expect %d", newprefix.Bits(), prefix.Bits())
+		}
 		return nil
 
 	}
